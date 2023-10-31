@@ -70,41 +70,25 @@ module user_project_wrapper #(
 /* User project is instantiated  here   */
 /*--------------------------------------*/
 
-user_proj_example mprj (
-`ifdef USE_POWER_PINS
-	.vdd(vdd),	// User area 1 1.8V power
-	.vss(vss),	// User area 1 digital ground
-`endif
+    wire [7:0] ram_rd;
+    reg [7:0] ram_rd_reg;
+    // This is not correct wiring, for flow testing purpose only
+    gf180_ram_512x8_wrapper ram (
+        .CEN(!(wbs_cyc_i && wbs_stb_i)),
+        .CLK(wb_clk_i),
+        .GWEN(!wbs_we_i),
+        .A(wbs_adr_i[8:0]),
+        .D(wbs_dat_i[7:0]),
+        .Q(wbs_dat_o[7:0]),
+        .WEN(8'd0)
+    );
 
-    .wb_clk_i(wb_clk_i),
-    .wb_rst_i(wb_rst_i),
-
-    // MGMT SoC Wishbone Slave
-
-    .wbs_cyc_i(wbs_cyc_i),
-    .wbs_stb_i(wbs_stb_i),
-    .wbs_we_i(wbs_we_i),
-    .wbs_sel_i(wbs_sel_i),
-    .wbs_adr_i(wbs_adr_i),
-    .wbs_dat_i(wbs_dat_i),
-    .wbs_ack_o(wbs_ack_o),
-    .wbs_dat_o(wbs_dat_o),
-
-    // Logic Analyzer
-
-    .la_data_in(la_data_in),
-    .la_data_out(la_data_out),
-    .la_oenb (la_oenb),
-
-    // IO Pads
-
-    .io_in ({io_in[37:30],io_in[7:0]}),
-    .io_out({io_out[37:30],io_out[7:0]}),
-    .io_oeb({io_oeb[37:30],io_oeb[7:0]}),
-
-    // IRQ
-    .irq(user_irq)
-);
+    assign wbs_ack_o = 1'b1;
+    assign wbs_dat_o[31:8] = 'd0;
+    assign la_data_out = 64'd0;
+    assign io_out = 'd0;
+    assign io_oeb = 'd0;
+    assign user_irq = 'd0;
 
 endmodule	// user_project_wrapper
 
