@@ -7,3 +7,7 @@
 *.vcd
 *.gtkw
 *.nl.v
+
+obj/
+obj_dir/
+simulator
