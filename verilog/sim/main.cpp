@@ -180,6 +180,7 @@ void reset() {
     tick();
     core->rst = 1;
     tick();
+    tick();
     core->rst = 0;
     if (noboot) {
         SIGNAL(brom_disable) = 1;

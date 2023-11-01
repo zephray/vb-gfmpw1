@@ -79,9 +79,7 @@ module ppu(
     output reg vs, // Vertical Sync, High Valid
     // Video RAM interface
     output wire [12:0] vram_a,
-    output wire vram_wr,
     output wire vram_rd,
-    output wire [7:0] vram_din,
     input wire [7:0] vram_dout,
     //Debug output
     output [7:0] scx,
@@ -185,8 +183,6 @@ module ppu(
     wire [7:0]  vram_data_out;
 
     assign vram_a = vram_addr_int;
-    assign vram_wr = 1'b0; // PPU doesn't write to VRAM
-    assign vram_din = 8'd0;
     assign vram_data_out = vram_dout;
     
     // Pixel Pipeline
@@ -330,7 +326,7 @@ module ppu(
     // Data that will be pushed into pixel FIFO
     // Organized in pixels
     reg [31:0] current_fetch_result;
-    always@(current_tile_data_1, current_tile_data_0) begin
+    always@(*) begin
         for (i = 0; i < 8; i = i + 1) begin
             current_fetch_result[i*4+3] = current_tile_data_1[i];
             current_fetch_result[i*4+2] = current_tile_data_0[i];
@@ -359,7 +355,7 @@ module ppu(
     // Cascade mux used to implement the searching of next id would be triggered
     reg [3:0] obj_trigger_id_from[0:10];
     reg [3:0] obj_trigger_id_next;
-    always@(h_pix_obj, obj_trigger_id) begin
+    always@(*) begin
         obj_trigger_id_from[10] = OBJ_TRIGGER_NOT_FOUND; // There is no more after the 10th
         for (i = 9; i >= 0; i = i - 1) begin
             /* verilator lint_off WIDTH */

@@ -23,7 +23,6 @@ module chip(
     input wire [7:0] din, // Data bus read
     output reg doe, // Data bus output enable
     output reg wr, // High active write enable
-    output reg cale, // Cartridge address latch enable
     output reg cs, // Cartridge chip select
     output wire hsync, // LCD horizontal sync
     output wire vsync, // LCD vertical sync
@@ -46,9 +45,7 @@ module chip(
     wire cpu_rd;
     reg [7:0] key;
     wire [15:0] ppu_a;
-    wire [7:0] ppu_dout;
-    reg [7:0] ppu_din;
-    wire ppu_wr;
+    wire [7:0] ppu_din;
     wire ppu_rd;
     wire [15:0] left;
     wire [15:0] right;
@@ -77,10 +74,8 @@ module chip(
         .right(right),
         // Video RAM interface
         .ppu_a(ppu_a[12:0]),
-        .ppu_wr(ppu_wr),
         .ppu_rd(ppu_rd),
         .ppu_din(ppu_din),
-        .ppu_dout(ppu_dout),
         // Debug interface
         .done(done),
         .fault(fault)
@@ -96,54 +91,58 @@ module chip(
     // 1100 xxxx xxxx xxxx WRAM
     // 1101 xxxx xxxx xxxx WRAM
 
-    wire addr_is_ram = ((cpu_a >= 16'h8000) && (cpu_a <= 16'h9fff)) ||
-            ((cpu_a >= 16'hc000) && (cpu_a <= 16'hdfff));
-    wire addr_is_cart = ((cpu_a <= 16'h7fff) || // Cart ROM
-            ((cpu_a >= 16'ha000) && (cpu_a <= 16'hbfff))); // Cart RAM
+    wire addr_is_vram = (cpu_a >= 16'h8000) && (cpu_a <= 16'h9fff);
+    wire addr_is_wram = (cpu_a >= 16'hc000) && (cpu_a <= 16'hdfff);
+    wire addr_is_ram = addr_is_vram || addr_is_wram;
+    wire addr_is_crom = (cpu_a <= 16'h7fff);
+    wire addr_is_cram = (cpu_a >= 16'ha000) && (cpu_a <= 16'hbfff);
+    wire addr_is_cart = addr_is_crom || addr_is_cram;
 
-    reg addr_is_cart_reg;
-    reg [15:0] cpu_a_reg;
-    always @(posedge clk) begin
-        if (ct == 2'b00) begin
-            addr_is_cart_reg <= addr_is_cart;
-            cpu_a_reg <= cpu_a;
-        end
-    end
+    // Internal VRAM
+    reg [12:0] iram_addr;
+    wire [7:0] iram_din = cpu_dout;
+    wire [7:0] iram_dout;
+    reg iram_wr;
+    reg iram_rd;
+    assign ppu_din = iram_dout;
 
-    // Bus multiplexing
+    // PPU expects single cycle readout
+    singleport_ram #(.WORDS(8192)) iram (
+        .clka(~clk),
+        .wea(iram_wr),
+        .addra(iram_addr),
+        .dina(iram_din),
+        .douta(iram_dout)
+    );
+
+    // External bus multiplexing
+    wire ext_wr = cpu_wr && !addr_is_vram;
     always @(*) begin
+        // External bus now just sees CPU request
+        a = cpu_a;
+        dout = cpu_dout;
+        doe = ext_wr;
+        wr = ext_wr;
+        cs = addr_is_cart;
+        cpu_din = addr_is_vram ? iram_dout : din;
+
         if (ct == 2'b00) begin
             // CPU/ DMA address output
-            a = cpu_a;
-            dout = 8'hff;
-            doe = 1'b0;
-            wr = 1'b0;
-            cale = 1'b1;
-            cs = 1'b0;
-            cpu_din = 8'hff;
-            ppu_din = 8'hff;
+            iram_addr = 13'd0;
+            iram_rd = 1'b0;
+            iram_wr = 1'b0;
         end
         else if ((ct == 2'b01) || (ct == 2'b11)) begin
             // VRAM access (read only)
-            a = ppu_a;
-            dout = 8'hff;
-            doe = 1'b0;
-            wr = 1'b0;
-            cale = 1'b0;
-            cs = 1'b0;
-            cpu_din = 8'hff;
-            ppu_din = din;
+            iram_addr = ppu_a[12:0];
+            iram_rd = ppu_rd;
+            iram_wr = 1'b0;
         end
         else begin
             // CPU/ DMA access (RW)
-            a = cpu_a_reg;
-            dout = cpu_dout;
-            doe = !cpu_wr;
-            wr = cpu_wr;
-            cale = 1'b0;
-            cs = addr_is_cart_reg;
-            cpu_din = din;
-            ppu_din = 8'hff;
+            iram_addr = cpu_a[12:0];
+            iram_rd = addr_is_vram & cpu_rd;
+            iram_wr = addr_is_vram & cpu_wr;
         end
     end
 

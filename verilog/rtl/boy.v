@@ -41,9 +41,7 @@ module boy(
     output reg [15:0] right,
     // PPU bus interface
     output wire [12:0] ppu_a,
-    output wire ppu_wr,
     output wire ppu_rd,
-    output wire [7:0] ppu_dout,
     input wire [7:0] ppu_din,
     // Debug interface
     output wire done,
@@ -56,7 +54,6 @@ module boy(
     reg  [7:0]  cpu_din;           // CPU Data Bus, to CPU
     wire [7:0]  cpu_dout;          // CPU Data Bus, from CPU
     wire [15:0] cpu_a;             // CPU Address Bus
-    wire [15:0] cpu_a_early;       // CPU Address Unbuffered
     wire [4:0]  cpu_int_en;        // CPU Interrupt Enable input
     wire [4:0]  cpu_int_flags_in;  // CPU Interrupt Flags input
     wire [4:0]  cpu_int_flags_out; // CPU Interrupt Flags output
@@ -67,7 +64,7 @@ module boy(
         .phi(phi),
         .ct(ct),
         .a(cpu_a),
-        .a_early(cpu_a_early),
+        .a_early(),
         .dout(cpu_dout),
         .din(cpu_din),
         .rd(cpu_rd),
@@ -78,8 +75,9 @@ module boy(
         .key_in(key),
         .done(done),
         .fault(fault));
-        
+
     // High RAM
+    // TODO: Convert this to SRAM
     reg [7:0] high_ram [0:127];
     wire high_ram_rd = cpu_rd;
     reg high_ram_wr;
@@ -214,9 +212,7 @@ module boy(
         .vs(vs),  // Vertical Sync, Low Active
         .vram_a(ppu_a),
         .vram_dout(ppu_din),
-        .vram_din(ppu_dout),
         .vram_rd(ppu_rd),
-        .vram_wr(ppu_wr),
         // Ignore the debugging interface
         /* verilator lint_off PINCONNECTEMPTY */
         .scx(),
@@ -325,7 +321,7 @@ module boy(
 
     // External Bus (this includes CPU/DMA access to WRAM, VRAM, and cartridge)
     reg ext_cpu_wr;  // wire
-    assign a = (dma_occupy_bus) ? (dma_a) : (cpu_a_early);
+    assign a = (dma_occupy_bus) ? (dma_a) : (cpu_a);
     assign dout = cpu_dout; // DMA never writes to external bus
     assign wr = (dma_occupy_bus) ? (1'b0) : (ext_cpu_wr);
     assign rd = (dma_occupy_bus) ? (dma_rd) : (cpu_rd);

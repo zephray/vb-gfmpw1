@@ -14,7 +14,7 @@ module simtop(
     input wire clk,
     input wire rst,
     // Cartridge interface
-    output reg [15:0] a,
+    output wire [15:0] a,
     output wire [7:0] dout,
     input wire [7:0] din,
     output wire wr,
@@ -36,7 +36,9 @@ module simtop(
 
     wire [15:0] bus_a;
     wire [7:0] bus_dout;
+    wire [7:0] bus_dout_enabled;
     wire [7:0] bus_din;
+    wire [7:0] bus_din_enabled;
     wire bus_doe;
     wire bus_wr;
     wire bus_cale;
@@ -50,7 +52,7 @@ module simtop(
         .rstn(!rst),
         .a(bus_a),
         .dout(bus_dout),
-        .din(bus_din),
+        .din(bus_din_enabled),
         .doe(bus_doe),
         .wr(bus_wr),
         .hsync(hs),
@@ -63,38 +65,26 @@ module simtop(
         .done(done),
         .fault(fault)
     );
+    assign bus_dout_enabled = bus_dout & {8{bus_doe}};
+    assign bus_din_enabled = bus_din & ~{8{bus_doe}};
+    //assign bus_dout_enabled = bus_dout;
+    //assign bus_din_enabled = bus_din;
 
-    reg [1:0] ct;
-    always @(posedge clk) begin
-        if (rst) begin
-            ct <= 2'd0;
-        end
-        else begin
-            ct <= ct + 1;
-        end
-    end
-
-    assign bus_cale = ct == 2'b00;
-    assign bus_cs = (ct == 2'b10) && (!bus_a[15] || (bus_a[15:13] == 3'b101));
+    assign bus_cs = (!bus_a[15] || (bus_a[15:13] == 3'b101));
 
     wire sram_we;
     wire [7:0] sram_dout;
-    async_ram #(.WORDS(16384), .ABITS(14)) sram(
+    async_ram #(.WORDS(8192), .ABITS(13)) sram(
         .clka(clk),
         .wea(sram_we),
-        .addra({bus_a[14], bus_a[12:0]}),
-        .dina(bus_dout),
+        .addra(bus_a[12:0]),
+        .dina(bus_dout_enabled),
         .douta(sram_dout)
     );
     assign sram_we = bus_wr & !bus_cs;
 
-    // OR use transparent latch
-    always @(posedge clk) begin
-        if (bus_cale)
-            a <= bus_a;
-    end
-
-    assign dout = bus_dout;
+    assign a = bus_a;
+    assign dout = bus_dout_enabled;
     assign bus_din = bus_cs ? din : sram_dout;
     assign wr = bus_cs & bus_wr;
     assign rd = ~bus_wr; // Always enable output
