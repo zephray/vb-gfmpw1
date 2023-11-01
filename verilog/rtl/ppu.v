@@ -295,7 +295,7 @@ module ppu(
     wire [7:0] v_pix_in_map = v_pix + reg_scy;
     wire [7:0] v_pix_in_win = v_pix - reg_wy;
 
-    reg [4:0] r_state = 0;
+    reg [4:0] r_state;
     reg [4:0] r_next_backup;
     reg [4:0] r_next_state;
     wire is_in_v_blank = ((v_count >= PPU_V_ACTIVE) && (v_count < PPU_V_ACTIVE + PPU_V_BLANK));
@@ -481,9 +481,10 @@ module ppu(
                 h_pix_render <= 8'd0; // Render pointer
                 oam_search_count <= 6'd0;
                 oam_visible_count <= 4'd0;
-                for (i = 0; i < 10; i = i + 1) begin
-                    obj_valid_list[i] <= 1'b0;
-                end
+                // for (i = 0; i < 10; i = i + 1) begin
+                //     obj_valid_list[i] <= 1'b0;
+                // end
+                obj_valid_list[9:0] <= 10'd0;
                 oam_rd_addr_int <= 8'b0;
                 window_triggered <= 1'b0;
                 // Line start, need to render 16 pixels in 12 clocks
@@ -554,7 +555,7 @@ module ppu(
     end
     
     reg [31:0] half_merge_result;
-    always @(current_fetch_result, pf_data) begin
+    always @(*) begin
         for (i = 0; i < 8; i = i + 1) begin
             if ((pf_data[32+i*4+1] == PPU_PAL_BG[1])&&(pf_data[32+i*4+0] == PPU_PAL_BG[0])) begin
                 half_merge_result[i*4+3] = current_fetch_result[i*4+3];
